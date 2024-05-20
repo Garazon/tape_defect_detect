@@ -1,10 +1,8 @@
 # 检测顶、底部胶带褶皱和齐缝线是否平分胶带
-import os
 import tkinter as tk
 from tkinter import filedialog
-from PIL import Image
-from matplotlib import pyplot as plt
 from ultralytics import YOLO
+import json
 
 from utils.box_utils import is_middle_line, cal_distance
 import time
@@ -15,7 +13,7 @@ def detect():
 
     root = tk.Tk()  # 创建Tkinter窗口
     root.withdraw()  # 隐藏Tkinter窗口
-    file_types = [('JPG', '*.jpg'), ('PNG', '*.png')]  # 设置打开文件格式
+    file_types = [('JPG', '*.jpg'), ('PNG', '*.png'), ('BMP', '*.bmp')]  # 设置打开文件格式
 
     # file_path = 'test_img/test3.jpg'
     while True:
@@ -53,16 +51,17 @@ def detect():
             # TODO
 
             for result in results:
-                img_array = result.plot(conf=True, boxes=False, kpt_line=False)  # 在输入图像上绘制检测结果，并返回带注释的图像
-                img = Image.fromarray(img_array[..., ::-1])  # PIL打开
-                plt.imshow(img)
-                plt.show()  # 展示图片
-                txt_path = 'result.txt'
-                if os.path.exists(txt_path):  # 判断result.txt是否存在，存在则清空
-                    with open(txt_path, 'w') as file:
-                        file.truncate(0)
-                result.save_txt('result.txt')  # 保存结果
-                result.save('result.jpg')  # 保存带标注的图像
+                result_json = result.tojson(normalize=False)  # 将结果转为json格式
+                data = json.loads(result_json)  # 以字典格式加载
+                json_data = {
+                    "mission": "tape_defect_detect",  # 表示任务是胶带缺陷检测（主要是顶、底部）
+                    "box_side_length": distance,  # 封箱侧边四段长度
+                    "defect_degree": percentage,  # 胶带褶皱程度
+                    "data": data  # 检测结果
+                }
+                # 将数据写入 JSON 文件
+                with open("result.json", "w") as json_file:
+                    json.dump(json_data, json_file, indent=4)  # 保存为json格式并格式化处理
 
             print("预测完成并保存结果图片及预测结果")
         else:
