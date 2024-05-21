@@ -87,13 +87,33 @@ def is_middle_line(results):
         else:
             box_pos = [[box_obj_lists[1][0], box_obj_lists[1][1]], [box_obj_lists[1][2], box_obj_lists[1][1]],
                        [box_obj_lists[0][0], box_obj_lists[0][3]], [box_obj_lists[0][2], box_obj_lists[0][3]]]
+
+        # 计算褶皱程度
+        if area_tape_defect == 0:
+            percentage = 0
+        else:  # (褶皱面积 / (胶带面积 + 褶皱面积)) * 100
+            percentage = round(((area_tape_defect / (area_tape + area_tape_defect)) * 100), 2)
+            percentage = str(percentage) + "%"
+
         # 获取四角的掩码值
         box_edge_points = get_edge_points(box_pos, box_masks_lists)
 
-        return box_edge_points, tape_edge_points, area_tape, area_tape_defect
+        # 判断四段距离的长度差值,用掩码值计算
+        distance = []  # 四段距离分别是左上、右上、左下、右下
+        for p1, p2 in zip(box_edge_points, tape_edge_points):
+            dist = cal_distance(p1, p2)
+            distance.append(dist)
+
+        # 计算偏离值
+        deviation_degree = (abs(distance[0] - distance[2]) / (distance[0] + distance[2]) +
+                            abs(distance[1] - distance[3]) / (distance[1] + distance[3])) / 2
+        deviation_degree = round((deviation_degree * 100), 2)
+        deviation_degree = str(deviation_degree) + "%"
+
+        return deviation_degree, percentage
     except Exception as e:
         print(f"An error occurred: {e}")
-        return float('inf'), float('inf'), float('inf'), float('inf')
+        return float('inf'), float('inf'), float('inf')
 
 # 判断箱喷码平分胶带
 def is_middle_code(pos_top_left_corner_y, area_mask):
@@ -147,30 +167,3 @@ def process_class(boxes, masks, class_id):
         print(f"An error occurred: {e}")
         return float('inf')
 
-# 根据字典形式绘制边界框
-def draw_by_json(data, img_path):
-    """
-    :param data: 标注信息列表，字典形式
-    :param image_path: 在哪张图上绘制
-    :return:
-    """
-
-    # 读取图像
-    image = Image.open(img_path)
-    plt.imshow(image)
-    # 设置颜色列表
-    colors = [
-        "#FF3838", "#520085", "#CB38FF", "#FF9D97", "#FF701F", "#FFB21D", "#CFD231", "#48F90A", "#3DDB86", "#00D4BB",
-        "#344593", "#6473FF", "#0018EC", "#8438FF", "#FF95C8", "#FF37C7", "#2C99A8", "#00C2FF", "#1A9334", "#92CC17"
-    ]
-    # 绘制图像
-    for item in data['data']:
-        x = item["segments"]["x"]  # 获取掩码框边界点的横坐标
-        y = item["segments"]["y"]  # 获取掩码框边界点的纵坐标
-        plt.plot(x, y, color=colors[item["class"]], linewidth=2)  # 在图像上绘制掩码框边界
-        plt.plot([x[-1], x[0]], [y[-1], y[0]], color=colors[item["class"]], linewidth=2)  # 将第一个点和最后一个点连接起来
-    plt.show()  # 显示图像
-
-    percentage = data["defect_degree"]  # 褶皱程度
-    box_side_length = data["box_side_length"]  # 封箱侧边四段长度
-    return percentage, box_side_length
